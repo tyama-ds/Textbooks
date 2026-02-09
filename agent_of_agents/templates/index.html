@@ -1,0 +1,89 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Agent of Agents</title>
+    <link rel="stylesheet" href="/static/style.css">
+    <style>
+        /* Inline critical styles for instant render */
+        @import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700&display=swap');
+    </style>
+</head>
+<body>
+    <!-- Header -->
+    <header class="header">
+        <div class="header-title">
+            <h1>&#x2726; Agent of Agents</h1>
+            <span class="subtitle">Autonomous Build Pipeline</span>
+        </div>
+        <div class="header-actions">
+            <span id="mode-badge" class="mode-badge demo">DEMO</span>
+        </div>
+    </header>
+
+    <!-- Input Panel -->
+    <div class="input-panel">
+        <div class="input-wrapper">
+            <textarea id="task-input" class="input-field" rows="1"
+                      placeholder="Describe what you want to build... (e.g., 'A REST API for managing todo items with CRUD operations')"></textarea>
+            <button id="run-button" class="run-button">Build It</button>
+        </div>
+        <div class="settings-row">
+            <div class="setting-group">
+                <label>API Key</label>
+                <input type="password" id="api-key" class="setting-input"
+                       placeholder="sk-ant-... (optional for demo)">
+            </div>
+            <div class="setting-group">
+                <label>Model</label>
+                <select id="model-select" class="setting-input">
+                    <option value="claude-sonnet-4-20250514">Claude Sonnet</option>
+                    <option value="claude-opus-4-20250514">Claude Opus</option>
+                    <option value="claude-haiku-4-20250514">Claude Haiku</option>
+                </select>
+            </div>
+            <div class="setting-group">
+                <label>Max Fix Attempts</label>
+                <input type="number" id="max-attempts" class="setting-input" value="5" min="1" max="20">
+            </div>
+        </div>
+    </div>
+
+    <!-- Main Container -->
+    <div class="main-container">
+        <!-- Pipeline Panel (Left) -->
+        <div class="pipeline-panel">
+            <h2>Pipeline</h2>
+            <div id="pipeline-steps">
+                <div class="empty-state">
+                    <div class="icon">&#x2726;</div>
+                    <p>Enter what you want to build and click "Build It" to start the autonomous pipeline.</p>
+                    <p style="font-size: 11px; color: var(--text-muted); margin-top: 8px;">
+                        Plan &#x2192; Implement &#x2192; Test &#x2192; Fix &#x21BB; &#x2192; Git
+                    </p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Detail Panel (Right) -->
+        <div class="detail-panel">
+            <div class="detail-tabs">
+                <button class="detail-tab active" data-tab="plan">Plan</button>
+                <button class="detail-tab" data-tab="code">Code</button>
+                <button class="detail-tab" data-tab="tests">Tests</button>
+                <button class="detail-tab" data-tab="git">Git</button>
+                <button class="detail-tab" data-tab="log">Event Log</button>
+            </div>
+            <div id="detail-content">
+                <div class="empty-state">
+                    <div class="icon">&#x2726;</div>
+                    <p>Select a pipeline step or tab to view details.</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="/static/app.js"></script>
+</body>
+</html>
