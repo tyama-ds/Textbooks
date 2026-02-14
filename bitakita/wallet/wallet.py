@@ -75,6 +75,9 @@ class Wallet:
             self.generate_key()
         return self.keys[-1].address
 
+    def get_all_addresses(self) -> list[str]:
+        return [kp.address for kp in self.keys]
+
     def get_pubkey_hash(self) -> bytes:
         if not self.keys:
             self.generate_key()
