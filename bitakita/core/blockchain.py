@@ -60,7 +60,7 @@ class Blockchain:
 
         # Tracking
         self.total_supply: int = 0
-        self.total_burned: int = 0
+        self._utxo_burned: int = 0
         self._recent_block_sizes: list[int] = []
 
     # --- Properties ---
@@ -72,6 +72,10 @@ class Blockchain:
     @property
     def tip(self) -> Optional[Block]:
         return self.chain[-1] if self.chain else None
+
+    @property
+    def total_burned(self) -> int:
+        return self._utxo_burned + self.fee_manager.total_burned
 
     @property
     def circulating_supply(self) -> int:
@@ -138,7 +142,7 @@ class Blockchain:
         self.chain.append(genesis_block)
         self._block_index[genesis_block.hash()] = 0
         self._update_utxo_set(genesis_block, 0)
-        self._track_supply(genesis_block)
+        self._track_supply(genesis_block, 0)
         return True
 
     # --- Block Addition ---
@@ -168,20 +172,26 @@ class Blockchain:
         self.chain.append(block)
         self._block_index[block.hash()] = height
         self._update_utxo_set(block, height)
-        self._track_supply(block)
+        self._track_supply(block, height)
 
         # Update dynamic block size tracking
         self._recent_block_sizes.append(block.block_size())
         if len(self._recent_block_sizes) > 50:
             self._recent_block_sizes = self._recent_block_sizes[-50:]
 
-        # Update EIP-1559 base fee
+        # Process EIP-1559 fee burns for this block's transactions
+        base_fee = block.header.base_fee
+        for tx in block.transactions[1:]:
+            burn = base_fee * tx.size() * params.FEE_BURN_PERCENTAGE // 100
+            self.fee_manager.total_burned += burn
+
+        # Update EIP-1559 base fee for next block
         self.fee_manager.update_base_fee(
             block.block_size(),
             self.governance.get_param("TARGET_BLOCK_SIZE"),
         )
 
-        # Process PoS (rewards + checkpoints)
+        # Process PoS checkpoints (rewards distributed separately)
         checkpoint = self.consensus.on_new_block(height, block.hash())
 
         # Process staking transactions
@@ -244,26 +254,11 @@ class Blockchain:
 
         # Verify coinbase reward
         expected_reward = self.get_block_reward(height)
-        # Estimate staking rewards (read-only, no side effects)
-        stake_rewards_total = self._estimate_stake_rewards(height)
         coinbase_total = sum(txout.amount for txout in coinbase.outputs)
-        if coinbase_total > expected_reward + total_fees + stake_rewards_total:
+        if coinbase_total > expected_reward + total_fees:
             return False, "Coinbase reward exceeds allowed amount"
 
         return True, "Valid"
-
-    def _estimate_stake_rewards(self, height: int) -> int:
-        """Estimate total staking rewards without side effects."""
-        blocks_per_year = 365 * 24 * 60
-        total = 0
-        for v in self.consensus.stake_pool.active_validators:
-            reward = (
-                v.stake_amount
-                * params.ANNUAL_STAKE_REWARD_RATE
-                // (100 * blocks_per_year)
-            )
-            total += reward
-        return total
 
     # --- UTXO Management ---
 
@@ -285,13 +280,9 @@ class Blockchain:
                         is_staked=is_staked,
                     )
 
-    def _track_supply(self, block: Block) -> None:
-        """Track total supply from coinbase outputs."""
-        if block.transactions:
-            coinbase = block.transactions[0]
-            if coinbase.inputs[0].is_coinbase():
-                for txout in coinbase.outputs:
-                    self.total_supply += txout.amount
+    def _track_supply(self, block: Block, height: int) -> None:
+        """Track total supply from block reward (new coin issuance only)."""
+        self.total_supply += self.get_block_reward(height)
 
     # --- UTXO Rental (Storage Fees) ---
 
@@ -322,7 +313,7 @@ class Blockchain:
             effective_value = utxo.output.amount - rent
             if effective_value <= params.UTXO_DUST_THRESHOLD:
                 to_remove.append(key)
-                self.total_burned += utxo.output.amount
+                self._utxo_burned += utxo.output.amount
 
         for key in to_remove:
             del self.utxo_set[key]

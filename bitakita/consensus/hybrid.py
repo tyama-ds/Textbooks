@@ -60,10 +60,6 @@ class HybridConsensus:
         Checks if a checkpoint should be created.
         Returns the new Checkpoint if one was created, else None.
         """
-        # Distribute staking rewards
-        self.stake_pool.distribute_rewards(block_height)
-
-        # Create checkpoint if needed
         if self.checkpoint_mgr.should_checkpoint(block_height):
             return self.checkpoint_mgr.create_checkpoint(block_height, block_hash)
         return None

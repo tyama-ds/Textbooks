@@ -38,7 +38,7 @@ class Miner:
         transactions = list(extra_transactions or [])
         transactions.extend(self.blockchain.mempool)
 
-        # Calculate fees
+        # Calculate actual fees from UTXO differences
         total_fees = 0
         for tx in transactions:
             input_total = 0
@@ -49,22 +49,20 @@ class Miner:
             output_total = sum(txout.amount for txout in tx.outputs)
             total_fees += max(0, input_total - output_total)
 
-        # Fee burn calculation
-        fee_data = []
+        # Calculate burn amount (no side effects - burns tracked in add_block)
+        base_fee = self.blockchain.fee_manager.base_fee
+        total_burned = 0
         for tx in transactions:
-            fee_data.append((tx.size(), 0))
-        miner_fee_share, burned = self.blockchain.fee_manager.process_block_fees(fee_data)
-
-        # Staking rewards
-        stake_rewards = self.blockchain.consensus.stake_pool.distribute_rewards(height)
+            burn = base_fee * tx.size() * params.FEE_BURN_PERCENTAGE // 100
+            total_burned += burn
+        miner_fee_share = total_fees - total_burned
 
         # Create coinbase
         coinbase = CoinbaseTransaction(
             block_height=height,
-            reward=reward + miner_fee_share,
+            reward=reward + max(0, miner_fee_share),
             recipient_pubkey_hash=self.miner_pubkey_hash,
             message=message,
-            stake_rewards=stake_rewards if stake_rewards else None,
         )
 
         all_transactions = [coinbase] + transactions
